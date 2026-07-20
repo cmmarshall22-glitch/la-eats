@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LA Eats & Drinks</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --canvas: #16101E; --canvas-2: #1E1530; --canvas-3: #261C3A;
+  --card: #F3EEE8; --card-2: #E8E2DA;
+  --gold: #C9A84C; --gold-dim: #8A6F35; --gold-faint: rgba(201,168,76,0.12);
+  --on-dark: #F3EEE8; --muted-dark: #9890A8; --faint-dark: rgba(243,238,232,0.06);
+  --on-card: #1A1228; --muted-card: #6B6278; --faint-card: rgba(26,18,40,0.08);
+  --rule: rgba(201,168,76,0.2);
+  --serif: 'DM Serif Display', Georgia, serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+}
+html, body { height: 100%; background: var(--canvas); color: var(--on-dark); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+.app { max-width: 660px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* Header */
+.header { padding: 40px 0 28px; border-bottom: 0.5px solid var(--rule); margin-bottom: 28px; display: flex; align-items: flex-end; justify-content: space-between; }
+.header-left h1 { font-family: var(--serif); font-size: 36px; font-weight: 400; color: var(--on-dark); letter-spacing: -0.5px; line-height: 1; }
+.header-left h1 em { font-style: italic; color: var(--gold); }
+.header-left p { font-size: 11px; color: var(--muted-dark); margin-top: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+.sync-pill { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted-dark); letter-spacing: 0.06em; text-transform: uppercase; }
+.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted-dark); flex-shrink: 0; transition: background 0.3s; }
+.sync-dot.ok { background: #5BBF8A; } .sync-dot.err { background: #E05555; }
+
+/* Stats */
+.stats { display: flex; gap: 0; margin-bottom: 28px; }
+.stat { flex: 1; text-align: center; padding: 16px 0; background: var(--canvas-2); border: 0.5px solid var(--rule); }
+.stat:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.stat:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.stat + .stat { border-left: none; }
+.stat-num { font-family: var(--serif); font-size: 26px; color: var(--gold); line-height: 1; }
+.stat-label { font-size: 10px; color: var(--muted-dark); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+
+/* Tabs */
+.tabs { display: flex; margin-bottom: 20px; gap: 4px; }
+.tab { flex: 1; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 8px; cursor: pointer; color: var(--muted-dark); background: var(--canvas-2); border: 0.5px solid var(--rule); border-radius: var(--r-sm); font-family: var(--sans); transition: all 0.15s; font-weight: 500; }
+.tab:hover { color: var(--on-dark); }
+.tab.active { background: var(--gold-faint); color: var(--gold); border-color: rgba(201,168,76,0.4); }
+
+/* Search */
+.search-wrap { position: relative; margin-bottom: 12px; }
+.search-input { width: 100%; background: var(--canvas-2); border: 0.5px solid var(--rule); border-radius: var(--r-sm); padding: 10px 14px 10px 36px; font-size: 13px; color: var(--on-dark); font-family: var(--sans); outline: none; transition: border-color 0.15s; }
+.search-input:focus { border-color: rgba(201,168,76,0.5); }
+.search-input::placeholder { color: var(--muted-dark); }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted-dark); font-size: 14px; pointer-events: none; }
+.search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-dark); cursor: pointer; font-size: 16px; display: none; }
+
+/* Filters */
+.filter-row { display: flex; gap: 6px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-select { background: var(--canvas-2); border: 0.5px solid var(--rule); border-radius: var(--r-sm); padding: 6px 10px; font-size: 11px; color: var(--muted-dark); font-family: var(--sans); cursor: pointer; outline: none; transition: all 0.15s; letter-spacing: 0.04em; }
+.filter-select:focus, .filter-select.active-filter { border-color: rgba(201,168,76,0.5); color: var(--gold); }
+.filter-select option { background: #1E1530; color: var(--on-dark); }
+.perk-chip { font-size: 11px; padding: 6px 10px; border-radius: var(--r-sm); border: 0.5px solid var(--rule); background: var(--canvas-2); color: var(--muted-dark); cursor: pointer; font-family: var(--sans); transition: all 0.15s; letter-spacing: 0.04em; white-space: nowrap; }
+.perk-chip.inkind-on { background: rgba(45,106,79,0.2); color: #5BBF8A; border-color: rgba(91,191,138,0.3); }
+.perk-chip.blackbird-on { background: rgba(74,48,128,0.2); color: #A888E8; border-color: rgba(168,136,232,0.3); }
+.filter-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.result-count { font-size: 11px; color: var(--muted-dark); letter-spacing: 0.04em; flex: 1; }
+.sort-row { display: flex; gap: 4px; }
+.sort-btn { font-size: 10px; padding: 4px 8px; border-radius: 4px; border: 0.5px solid var(--rule); background: transparent; color: var(--muted-dark); cursor: pointer; font-family: var(--sans); letter-spacing: 0.04em; transition: all 0.15s; }
+.sort-btn.active { background: var(--gold-faint); color: var(--gold); border-color: rgba(201,168,76,0.3); }
+.clear-filters { font-size: 10px; color: var(--gold-dim); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: var(--sans); }
+
+/* Cards */
+.spot-card { background: var(--card); border-radius: var(--r-md); padding: 16px 18px; margin-bottom: 8px; transition: transform 0.12s, box-shadow 0.12s; }
+.spot-card:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+.card-name { font-family: var(--serif); font-size: 19px; color: var(--on-card); line-height: 1.15; }
+.card-type { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-dim); background: rgba(201,168,76,0.1); padding: 3px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 3px; }
+.card-google { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.google-stars { color: #E8A020; font-size: 12px; letter-spacing: 1px; }
+.google-score { font-size: 12px; font-weight: 500; color: var(--on-card); }
+.google-count { font-size: 11px; color: var(--muted-card); }
+.google-label { font-size: 9px; color: var(--muted-card); letter-spacing: 0.04em; }
+.user-stars { color: var(--gold); font-size: 12px; letter-spacing: 1.5px; margin-bottom: 6px; }
+.card-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.pill-c { background: var(--faint-card); color: var(--on-card); }
+.pill-h { background: var(--faint-card); color: var(--muted-card); }
+.pill-p { background: var(--faint-card); color: var(--muted-card); }
+.card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+.badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.04em; }
+.badge-inkind { background: #E8F4EC; color: #2D6A4F; }
+.badge-blackbird { background: #EDE8F5; color: #4A3080; }
+.badge-resy { background: #FDE8E8; color: #B03030; }
+.badge-opentable { background: #E8F5EA; color: #1A6B2E; }
+.badge-tock { background: #E8EEF5; color: #1A3A6B; }
+.badge-yelp { background: #FEF0E8; color: #B04010; }
+.badge-direct { background: #F0EDE8; color: #5A4A30; }
+.badge-walkin { background: var(--faint-card); color: var(--muted-card); }
+.res-link { text-decoration: none; }
+.card-note { font-size: 12px; color: var(--muted-card); line-height: 1.6; padding-top: 8px; border-top: 0.5px solid var(--faint-card); margin-top: 6px; }
+.card-source { font-size: 10px; color: #9B92A6; margin-top: 5px; }
+.card-actions { display: flex; gap: 5px; margin-top: 10px; padding-top: 8px; border-top: 0.5px solid var(--faint-card); flex-wrap: wrap; }
+.act-btn { font-size: 10px; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: 0.5px solid var(--faint-card); background: transparent; color: var(--muted-card); font-family: var(--sans); transition: all 0.15s; letter-spacing: 0.03em; }
+.act-btn:hover { background: var(--faint-card); color: var(--on-card); }
+.act-btn.been-here:hover { background: #E1F0E8; color: #2D6A4F; border-color: #A8D5B8; }
+.act-btn.danger:hover { background: #FDEEEE; color: #A83232; border-color: #F5B8B8; }
+.act-btn.inkind-on { color: #2D6A4F; border-color: #A8D5B8; background: #E8F4EC; }
+.act-btn.blackbird-on { color: #4A3080; border-color: #C5B8E8; background: #EDE8F5; }
+.note-edit-area { margin-top: 8px; padding-top: 8px; border-top: 0.5px solid var(--faint-card); }
+.note-textarea { width: 100%; background: rgba(26,18,40,0.04); border: 0.5px solid var(--faint-card); border-radius: 5px; padding: 7px 10px; font-size: 12px; color: var(--on-card); font-family: var(--sans); resize: vertical; min-height: 56px; outline: none; }
+.note-save-row { display: flex; gap: 5px; margin-top: 5px; }
+
+/* Add form */
+.form-card { background: var(--canvas-2); border-radius: var(--r-lg); padding: 24px; margin-bottom: 16px; border: 0.5px solid var(--rule); }
+.form-card h2 { font-family: var(--serif); font-size: 22px; color: var(--on-dark); margin-bottom: 4px; font-weight: 400; }
+.form-card .sub { font-size: 12px; color: var(--muted-dark); margin-bottom: 20px; }
+.lookup-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.lookup-input { flex: 1; background: rgba(243,238,232,0.06); border: 0.5px solid rgba(201,168,76,0.3); border-radius: var(--r-sm); padding: 10px 14px; font-size: 14px; color: var(--on-dark); font-family: var(--sans); outline: none; transition: border-color 0.15s; }
+.lookup-input:focus { border-color: var(--gold); }
+.lookup-input::placeholder { color: var(--muted-dark); opacity: 0.6; }
+.btn-gold { background: var(--gold); color: var(--canvas); border: none; border-radius: var(--r-sm); padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans); transition: opacity 0.15s; white-space: nowrap; }
+.btn-gold:hover { opacity: 0.88; } .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline { background: transparent; color: var(--gold); border: 0.5px solid rgba(201,168,76,0.4); border-radius: var(--r-sm); padding: 10px 18px; font-size: 13px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+.btn-outline:hover { background: var(--gold-faint); }
+.lookup-preview { background: rgba(201,168,76,0.06); border: 0.5px solid rgba(201,168,76,0.2); border-radius: var(--r-sm); padding: 14px 16px; margin-bottom: 14px; }
+.preview-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 3px; }
+.preview-name { font-family: var(--serif); font-size: 17px; color: var(--on-dark); }
+.preview-meta { font-size: 12px; color: var(--muted-dark); margin-bottom: 8px; }
+.preview-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+.wrong-btn { font-size: 11px; color: var(--muted-dark); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: var(--sans); padding: 0; white-space: nowrap; }
+.wrong-btn:hover { color: var(--gold); }
+.pick-option { border: 0.5px solid rgba(201,168,76,0.2); border-radius: var(--r-sm); padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+.pick-option:hover, .pick-option.selected { border-color: var(--gold); background: var(--gold-faint); }
+.pick-name { font-family: var(--serif); font-size: 15px; color: var(--on-dark); }
+.pick-meta { font-size: 11px; color: var(--muted-dark); margin-top: 2px; }
+.divider { height: 0.5px; background: var(--rule); margin: 16px 0; }
+.fg { display: grid; gap: 10px; margin-bottom: 10px; }
+.fg-2 { grid-template-columns: 1fr 1fr; }
+.fg-3 { grid-template-columns: 1fr 1fr 1fr; }
+.ff label { font-size: 10px; color: var(--muted-dark); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 5px; }
+.ff input, .ff select, .ff textarea { width: 100%; background: rgba(243,238,232,0.06); border: 0.5px solid rgba(201,168,76,0.18); border-radius: 5px; padding: 8px 10px; font-size: 13px; color: var(--on-dark); font-family: var(--sans); outline: none; transition: border-color 0.15s; }
+.ff input:focus, .ff textarea:focus { border-color: var(--gold); }
+.ff select option { background: #1E1530; }
+.ff textarea { resize: vertical; min-height: 64px; }
+.ff input::placeholder, .ff textarea::placeholder { color: var(--muted-dark); opacity: 0.5; }
+
+/* Recs */
+.recs-header { margin-bottom: 20px; }
+.recs-header p { font-size: 13px; color: var(--muted-dark); line-height: 1.7; margin-bottom: 14px; }
+.rec-card { border: 0.5px solid var(--rule); border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 8px; }
+.rec-name { font-family: var(--serif); font-size: 17px; color: var(--on-dark); margin-bottom: 3px; }
+.rec-meta { font-size: 12px; color: var(--muted-dark); margin-bottom: 6px; }
+.rec-why { font-size: 12px; color: var(--muted-dark); line-height: 1.6; margin-bottom: 10px; }
+.rec-actions { display: flex; gap: 6px; }
+
+/* Empty */
+.empty { text-align: center; padding: 48px 20px; color: var(--muted-dark); }
+.empty-glyph { font-family: var(--serif); font-size: 40px; color: rgba(201,168,76,0.2); margin-bottom: 12px; font-style: italic; }
+.empty p { font-size: 13px; line-height: 1.7; }
+.empty em { color: var(--gold); font-style: italic; font-family: var(--serif); }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--canvas-3); color: var(--on-dark); border: 0.5px solid var(--rule); padding: 10px 20px; border-radius: 20px; font-size: 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; letter-spacing: 0.04em; }
+.toast.show { opacity: 1; }
+.spinner-sm { display: inline-block; width: 10px; height: 10px; border: 1.5px solid rgba(243,238,232,0.2); border-top-color: var(--canvas); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+.spinner-lg { display: block; width: 22px; height: 22px; border: 2px solid rgba(201,168,76,0.2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+.loading { text-align: center; padding: 48px 20px; color: var(--muted-dark); font-size: 13px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <h1>LA <em>Eats</em> & Drinks</h1>
+      <p>Your personal guide to the city</p>
+    </div>
+    <div class="sync-pill"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Connecting</span></div>
+  </div>
+
+  <div class="stats" id="stats-bar"></div>
+
+  <div class="search-wrap" style="margin-top:20px;margin-bottom:12px;">
+    <span class="search-icon">⌕</span>
+    <input class="search-input" id="global-search" placeholder="Search all your spots..." oninput="setGlobalSearch(this.value)">
+    <button class="search-clear" id="global-search-clear" onclick="clearGlobalSearch()" style="display:none">×</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('want')">Want to try</button>
+    <button class="tab" onclick="showTab('visited')">Been there</button>
+    <button class="tab" onclick="showTab('add')">Add a spot</button>
+    <button class="tab" onclick="showTab('recs')">Get recs</button>
+  </div>
+
+  <div id="tab-want"><div class="loading"><div class="spinner-lg"></div>Loading your spots...</div></div>
+  <div id="tab-visited" style="display:none"></div>
+
+  <div id="tab-add" style="display:none">
+    <div class="form-card">
+      <h2>Add a spot</h2>
+      <p class="sub">Type a name and hit Look up — details, Google rating, and reservation platform fill in automatically.</p>
+      <div class="lookup-row">
+        <input class="lookup-input" id="f-name" placeholder="Restaurant or bar name..." onkeydown="if(event.key==='Enter')lookupSpot()">
+        <button class="btn-gold" id="lookup-btn" onclick="lookupSpot()"><span id="lookup-btn-text">Look up</span></button>
+      </div>
+      <div id="lookup-area"></div>
+      <div id="manual-fields" style="display:none">
+        <div class="divider"></div>
+        <div class="fg fg-2">
+          <div class="ff"><label>Neighborhood</label><input id="f-hood" placeholder="e.g. West LA"></div>
+          <div class="ff"><label>Cuisine</label><input id="f-cuisine" placeholder="e.g. Italian, casual"></div>
+        </div>
+        <div class="fg fg-3">
+          <div class="ff"><label>Price</label><select id="f-price"><option value="">—</option><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select></div>
+          <div class="ff"><label>Type</label><select id="f-type"><option value="restaurant">Restaurant</option><option value="bar">Bar</option><option value="cafe">Cafe</option></select></div>
+          <div class="ff"><label>Good for</label><select id="f-vibe"><option value="">—</option><option value="solo">Solo</option><option value="date">Dates</option><option value="group">Groups</option><option value="both">Solo or groups</option></select></div>
+        </div>
+        <div class="fg fg-2">
+          <div class="ff"><label>Status</label><select id="f-status" onchange="toggleRating()"><option value="want">Want to try</option><option value="visited">Been there</option></select></div>
+          <div class="ff" id="rating-row" style="display:none"><label>Your rating</label><select id="f-rating"><option value="5">★★★★★ Obsessed</option><option value="4">★★★★☆ Really good</option><option value="3">★★★☆☆ Solid</option><option value="2">★★☆☆☆ Meh</option><option value="1">★☆☆☆☆ Skip it</option></select></div>
+        </div>
+        <div class="ff" style="margin-bottom:10px;"><label>Notes</label><textarea id="f-notes" placeholder="What to order, who told you, what you loved..."></textarea></div>
+        <div class="ff" style="margin-bottom:16px;"><label>Source</label><input id="f-source" placeholder="e.g. Infatuation, Eater LA, friend rec..."></div>
+        <button class="btn-gold" onclick="addSpot()">Save spot</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-recs" style="display:none">
+    <div class="recs-header">
+      <p>Search Eater LA and The Infatuation for the best new openings, hidden gems, and what's hot right now.</p>
+      <button class="btn-gold" onclick="fetchRecs()">Search for recs ↗</button>
+    </div>
+    <div id="recs-list"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://sfxyloteblicubhhkmnb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmeHlsb3RlYmxpY3ViaGhrbW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMzczODgsImV4cCI6MjA5OTgxMzM4OH0.UiMhpEEUCGHf2tpo9eqV2vo4QgNHlq1Ck2wi6BTDKEk';
+const HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+const FUNCTION_URL = SUPABASE_URL + '/functions/v1/lookup';
+
+let spots = [];
+let lookupData = {};
+let allResults = [];
+let selectedResultIdx = -1;
+
+const state = {
+  want:    { inkind: false, blackbird: false, hood: 'all', cuisine: 'all', price: 'all', type: 'all', sort: 'name' },
+  visited: { inkind: false, blackbird: false, hood: 'all', cuisine: 'all', price: 'all', type: 'all', sort: 'rating' }
+};
+let globalSearch = '';
+
+const RES = {
+  resy:      { label: 'Resy', cls: 'badge-resy' },
+  opentable: { label: 'OpenTable', cls: 'badge-opentable' },
+  tock:      { label: 'Tock', cls: 'badge-tock' },
+  yelp:      { label: 'Yelp', cls: 'badge-yelp' },
+  direct:    { label: 'Book direct', cls: 'badge-direct' },
+  'walk-in': { label: 'Walk-in', cls: 'badge-walkin' }
+};
+
+function resBadgeHtml(platform, url) {
+  if (!platform) return '';
+  const r = RES[platform] || { label: platform, cls: 'badge-direct' };
+  if (url && platform !== 'walk-in') return `<a href="${url}" target="_blank" class="badge ${r.cls} res-link">${r.label} ↗</a>`;
+  return `<span class="badge ${r.cls}">${r.label}</span>`;
+}
+
+function setSyncStatus(ok, label) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('sync-label').textContent = label;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+function showTab(name) {
+  ['want','visited','add','recs'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', ['want','visited','add','recs'][i] === name);
+  });
+}
+
+function toggleRating() {
+  document.getElementById('rating-row').style.display =
+    document.getElementById('f-status').value === 'visited' ? 'block' : 'none';
+}
+
+function starsHtml(n, color, size) {
+  if (!n) return '';
+  return `<span style="color:${color};font-size:${size||12}px;letter-spacing:1px">${'★'.repeat(Math.round(n))}${'☆'.repeat(5-Math.round(n))}</span>`;
+}
+
+function typeLabel(t) { return t === 'bar' ? 'Bar & cocktails' : t === 'cafe' ? 'Cafe' : 'Restaurant'; }
+
+function cuisineKey(raw) {
+  const keywords = ['italian','mexican','japanese','sushi','korean','chinese','thai','vietnamese','american','french','mediterranean','indian','greek','spanish','peruvian','middle eastern','seafood','pizza','ramen','bbq','burgers','tacos','steakhouse','vegetarian','vegan','breakfast','brunch','cocktails','wine bar','cafe'];
+  const r = (raw||'').toLowerCase();
+  const match = keywords.find(k => r.includes(k));
+  if (match) return match.charAt(0).toUpperCase() + match.slice(1);
+  return (raw||'').split(',')[0].split('/')[0].split(' ')[0].trim();
+}
+
+function applyState(list, s) {
+  let r = list.filter(x => {
+    if (s.inkind && !x.inkind) return false;
+    if (s.blackbird && !x.blackbird) return false;
+    if (s.hood !== 'all' && x.hood !== s.hood) return false;
+    if (s.price !== 'all' && x.price !== s.price) return false;
+    if (s.type !== 'all' && x.type !== s.type) return false;
+    if (s.cuisine !== 'all' && cuisineKey(x.cuisine) !== s.cuisine) return false;
+    if (globalSearch) {
+      const q = globalSearch.toLowerCase();
+      const hay = [x.name, x.hood, x.cuisine, x.notes].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (s.sort === 'name') r = [...r].sort((a,b) => a.name.localeCompare(b.name));
+  else if (s.sort === 'rating') {
+    // Want to try: sort by Google rating. Been there: sort by user rating.
+    const isWant = r.length && r[0].status === 'want';
+    r = [...r].sort((a,b) => isWant ? (b.google_rating||0) - (a.google_rating||0) : (b.rating||0) - (a.rating||0));
+  }
+  return r;
+}
+
+function renderFilterRow(list, tab) {
+  const s = state[tab];
+  const hoods    = [...new Set(list.map(x => x.hood).filter(Boolean))].sort();
+  const cuisines = [...new Set(list.map(x => cuisineKey(x.cuisine)).filter(Boolean))].sort();
+  const prices   = [...new Set(list.map(x => x.price).filter(Boolean))].sort();
+  const types    = [...new Set(list.map(x => x.type).filter(Boolean))];
+  const anyFilter = s.inkind || s.blackbird || s.hood!=='all' || s.cuisine!=='all' || s.price!=='all' || s.type!=='all';
+
+  let html = `<div class="filter-row">`;
+  html += `<button class="perk-chip${s.inkind?' inkind-on':''}" onclick="toggleF('${tab}','inkind')">Inkind${s.inkind?' ✓':''}</button>`;
+  html += `<button class="perk-chip${s.blackbird?' blackbird-on':''}" onclick="toggleF('${tab}','blackbird')">Blackbird${s.blackbird?' ✓':''}</button>`;
+
+  if (hoods.length > 1) html += `<select class="filter-select${s.hood!=='all'?' active-filter':''}" onchange="setF('${tab}','hood',this.value)"><option value="all">Neighborhood</option>${hoods.map(h=>`<option value="${h}"${s.hood===h?' selected':''}>${h}</option>`).join('')}</select>`;
+  if (cuisines.length > 1) html += `<select class="filter-select${s.cuisine!=='all'?' active-filter':''}" onchange="setF('${tab}','cuisine',this.value)"><option value="all">Cuisine</option>${cuisines.map(c=>`<option value="${c}"${s.cuisine===c?' selected':''}>${c}</option>`).join('')}</select>`;
+  if (prices.length > 1) html += `<select class="filter-select${s.price!=='all'?' active-filter':''}" onchange="setF('${tab}','price',this.value)"><option value="all">Price</option>${['$','$$','$$$','$$$$'].filter(p=>prices.includes(p)).map(p=>`<option value="${p}"${s.price===p?' selected':''}>${p}</option>`).join('')}</select>`;
+  if (types.length > 1) html += `<select class="filter-select${s.type!=='all'?' active-filter':''}" onchange="setF('${tab}','type',this.value)"><option value="all">Type</option>${types.map(t=>`<option value="${t}"${s.type===t?' selected':''}>${typeLabel(t)}</option>`).join('')}</select>`;
+  if (anyFilter) html += `<button class="clear-filters" onclick="clearF('${tab}')">Clear</button>`;
+  html += `</div>`;
+  return html;
+}
+
+function renderCards(filtered, tab) {
+  if (!filtered.length) return `<div class="empty"><div class="empty-glyph">✦</div><p>Nothing here yet.<br><em>Add a spot</em> or pull recs to get started.</p></div>`;
+  return filtered.map(s => {
+    const inkindBadge = s.inkind ? `<span class="badge badge-inkind">✓ Inkind</span>` : '';
+    const bbBadge     = s.blackbird ? `<span class="badge badge-blackbird">✓ Blackbird</span>` : '';
+    const resBadge    = resBadgeHtml(s.reservation_platform, s.reservation_url);
+    const badgesHtml  = (inkindBadge||bbBadge||resBadge) ? `<div class="card-badges">${inkindBadge}${bbBadge}${resBadge}</div>` : '';
+    const googleHtml  = s.google_rating ? `<div class="card-google">${starsHtml(s.google_rating,'#E8A020',12)}<span class="google-score">${s.google_rating}</span>${s.google_count?`<span class="google-count">(${s.google_count})</span>`:''}<span class="google-label">Google</span></div>` : '';
+    const userHtml    = s.rating ? `<div class="user-stars">${'★'.repeat(s.rating)}${'☆'.repeat(5-s.rating)} <span style="font-size:9px;color:var(--muted-card);letter-spacing:0.04em;">your rating</span></div>` : '';
+    const inkindStyle = s.inkind ? 'class="act-btn inkind-on"' : 'class="act-btn"';
+    const bbStyle     = s.blackbird ? 'class="act-btn blackbird-on"' : 'class="act-btn"';
+    return `<div class="spot-card">
+      <div class="card-top"><div class="card-name">${s.name}</div><span class="card-type">${typeLabel(s.type)}</span></div>
+      ${googleHtml}${userHtml}
+      <div class="card-pills">
+        ${s.cuisine?`<span class="pill pill-c">${s.cuisine}</span>`:''}
+        ${s.hood?`<span class="pill pill-h">${s.hood}</span>`:''}
+        ${s.price?`<span class="pill pill-p">${s.price}</span>`:''}
+      </div>
+      ${badgesHtml}
+      <div id="note-display-${s.id}">${s.notes?`<div class="card-note">${s.notes}</div>`:''}</div>
+      <div id="note-edit-${s.id}" style="display:none" class="note-edit-area">
+        <textarea class="note-textarea" id="note-input-${s.id}" placeholder="Add notes...">${s.notes||''}</textarea>
+        <div class="note-save-row">
+          <button class="act-btn" style="color:#2D6A4F;border-color:#A8D5B8;" onclick="saveNote(${s.id})">Save</button>
+          <button class="act-btn" onclick="cancelNote(${s.id})">Cancel</button>
+        </div>
+      </div>
+      <div class="card-source">${s.source?'via '+s.source+' · ':''}added ${s.added}</div>
+      <div class="card-actions">
+        ${s.status==='want'?`<button class="act-btn been-here" onclick="markVisited(${s.id})">✓ Been here</button>`:''}
+        <button ${inkindStyle} onclick="togglePerk(${s.id},'inkind')">Inkind ${s.inkind?'✓':'+'}</button>
+        <button ${bbStyle} onclick="togglePerk(${s.id},'blackbird')">Blackbird ${s.blackbird?'✓':'+'}</button>
+        <button class="act-btn" onclick="editNote(${s.id})">Edit notes</button>
+        <button class="act-btn danger" onclick="removeSpot(${s.id})">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTab(tab) {
+  const container = document.getElementById('tab-' + tab);
+  const list = spots.filter(s => s.status === tab);
+  const s = state[tab];
+  const filtered = applyState(list, s);
+  const countText = filtered.length === list.length ? `${list.length} spot${list.length!==1?'s':''}` : `${filtered.length} of ${list.length} spots`;
+
+  if (!list.length && !globalSearch) {
+    container.innerHTML = `<div class="empty"><div class="empty-glyph">✦</div><p>Nothing here yet.<br><em>Add a spot</em> or pull recs to get started.</p></div>`;
+    return;
+  }
+  const ratingLabel = tab === 'want' ? 'Google rating' : 'My rating';
+  const sortHtml = `<div class="sort-row">
+    <button class="sort-btn${s.sort==='name'?' active':''}" onclick="setSort('${tab}','name')">A–Z</button>
+    <button class="sort-btn${s.sort==='rating'?' active':''}" onclick="setSort('${tab}','rating')">${ratingLabel}</button>
+  </div>`;
+
+  container.innerHTML =
+    renderFilterRow(list, tab) +
+    `<div class="filter-meta"><span class="result-count">${countText}</span>${sortHtml}</div>` +
+    renderCards(filtered, tab);
+}
+
+function render() {
+  const want = spots.filter(s=>s.status==='want');
+  const visited = spots.filter(s=>s.status==='visited');
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="stat-num">${want.length}</div><div class="stat-label">Want to try</div></div>
+    <div class="stat"><div class="stat-num">${visited.length}</div><div class="stat-label">Been there</div></div>
+    <div class="stat"><div class="stat-num">${spots.length}</div><div class="stat-label">Total saved</div></div>`;
+  renderTab('want');
+  renderTab('visited');
+}
+
+function setGlobalSearch(val) {
+  globalSearch = val;
+  const clearBtn = document.getElementById('global-search-clear');
+  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+  render();
+}
+
+function clearGlobalSearch() {
+  globalSearch = '';
+  const inp = document.getElementById('global-search');
+  if (inp) inp.value = '';
+  const clearBtn = document.getElementById('global-search-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  render();
+}
+function toggleF(tab, key) { state[tab][key] = !state[tab][key]; renderTab(tab); }
+function setF(tab, key, val) { state[tab][key] = val; renderTab(tab); }
+function setSort(tab, val) { state[tab].sort = val; renderTab(tab); }
+function clearF(tab) {
+  const s = state[tab];
+  s.inkind=false; s.blackbird=false; s.hood='all'; s.cuisine='all'; s.price='all'; s.type='all';
+  renderTab(tab);
+}
+
+function editNote(id) {
+  document.getElementById('note-display-'+id).style.display='none';
+  document.getElementById('note-edit-'+id).style.display='block';
+  const ta=document.getElementById('note-input-'+id);
+  ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length);
+}
+function cancelNote(id) {
+  document.getElementById('note-display-'+id).style.display='block';
+  document.getElementById('note-edit-'+id).style.display='none';
+}
+async function saveNote(id) {
+  const note=document.getElementById('note-input-'+id).value.trim();
+  const s=spots.find(s=>s.id===id); if(!s)return;
+  s.notes=note;
+  document.getElementById('note-display-'+id).innerHTML=note?`<div class="card-note">${note}</div>`:'';
+  document.getElementById('note-display-'+id).style.display='block';
+  document.getElementById('note-edit-'+id).style.display='none';
+  await updateSpot(id,{notes:note});
+  toast('Notes saved');
+}
+
+async function togglePerk(id, perk) {
+  const s=spots.find(s=>s.id===id); if(!s)return;
+  s[perk]=!s[perk];
+  const changes={}; changes[perk]=s[perk]; changes.perks_checked=true;
+  await updateSpot(id,changes);
+  render();
+  toast(s[perk]?(perk==='inkind'?'Inkind added':'Blackbird added'):(perk==='inkind'?'Inkind removed':'Blackbird removed'));
+}
+
+function toTitleCase(str) {
+  const small = new Set(['a','an','the','and','but','or','for','nor','on','at','to','by','in','of','up','as','is']);
+  return str.split(' ').map((w,i)=>{const l=w.toLowerCase();return(i===0||!small.has(l))?l.charAt(0).toUpperCase()+l.slice(1):l;}).join(' ');
+}
+
+function fillForm(r) {
+  lookupData=r;
+  document.getElementById('f-hood').value=r.hood||'';
+  document.getElementById('f-cuisine').value=r.cuisine||'';
+  document.getElementById('f-price').value=r.price||'';
+  document.getElementById('f-type').value=r.type||'restaurant';
+  document.getElementById('f-vibe').value=r.vibe||'';
+}
+
+function previewBadges(r) {
+  const ink=r.inkind?`<span class="badge badge-inkind">✓ Inkind — ${r.inkind_details||'20% back'}</span>`:`<span class="badge" style="background:var(--faint-dark);color:var(--muted-dark);">Not on Inkind</span>`;
+  const bb=r.blackbird?`<span class="badge badge-blackbird">✓ Blackbird — ${r.blackbird_details||'earn $FLY'}</span>`:`<span class="badge" style="background:var(--faint-dark);color:var(--muted-dark);">Not on Blackbird</span>`;
+  const res=resBadgeHtml(r.reservation_platform,r.reservation_url);
+  return `<div class="preview-badges">${ink}${bb}${res}</div>`;
+}
+
+function renderPreview(r, showWrong) {
+  const rating=r.google_rating?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">${starsHtml(r.google_rating,'#E8A020',12)} <strong style="font-size:12px;color:var(--on-dark)">${r.google_rating}</strong>${r.google_count?`<span style="font-size:11px;color:var(--muted-dark)">(${r.google_count})</span>`:''}</div>`:'';
+  return `<div class="lookup-preview">
+    <div class="preview-top">
+      <div class="preview-name">${r.name}</div>
+      ${showWrong?`<button class="wrong-btn" onclick="showPicker()">Wrong place?</button>`:''}
+    </div>
+    <div class="preview-meta">${[r.cuisine,r.hood,r.price].filter(Boolean).join(' · ')}</div>
+    ${rating}
+    ${previewBadges(r)}
+  </div>`;
+}
+
+function showPicker() {
+  let html=`<p style="font-size:10px;color:var(--muted-dark);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Multiple locations — pick one</p>`;
+  allResults.forEach((r,i)=>{
+    html+=`<div class="pick-option${selectedResultIdx===i?' selected':''}" onclick="selectResult(${i})">
+      <div class="pick-name">${r.name}</div>
+      <div class="pick-meta">${[r.cuisine,r.hood,r.price].filter(Boolean).join(' · ')}</div>
+    </div>`;
+  });
+  html+=`<button class="btn-gold" style="margin-top:4px;" id="use-selected-btn" ${selectedResultIdx===-1?'disabled':''} onclick="useSelected()">Use this location</button>`;
+  document.getElementById('lookup-area').innerHTML=html;
+  document.getElementById('manual-fields').style.display='none';
+}
+
+function selectResult(idx) {
+  selectedResultIdx=idx;
+  document.querySelectorAll('.pick-option').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+  const btn=document.getElementById('use-selected-btn');
+  if(btn)btn.disabled=false;
+}
+
+function useSelected() {
+  if(selectedResultIdx===-1)return;
+  const r=allResults[selectedResultIdx];
+  fillForm(r);
+  document.getElementById('lookup-area').innerHTML=renderPreview(r,allResults.length>1);
+  document.getElementById('manual-fields').style.display='block';
+}
+
+async function lookupSpot() {
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){toast('Enter a restaurant name first');return;}
+  const btn=document.getElementById('lookup-btn');
+  const btnText=document.getElementById('lookup-btn-text');
+  btn.disabled=true; btnText.innerHTML='<span class="spinner-sm"></span> Looking up...';
+  document.getElementById('lookup-area').innerHTML='';
+  document.getElementById('manual-fields').style.display='none';
+  lookupData={}; allResults=[]; selectedResultIdx=-1;
+
+  const dupe=spots.find(s=>s.name.toLowerCase()===name.toLowerCase());
+  if(dupe){
+    document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
+      <div class="preview-name">${dupe.name} is already saved</div>
+      <div class="preview-meta">In your ${dupe.status==='want'?'want to try':'been there'} list${dupe.hood?' · '+dupe.hood:''}</div>
+    </div>`;
+    btn.disabled=false; btnText.textContent='Look up'; return;
+  }
+
+  try {
+    const res=await fetch(FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({name})});
+    if(!res.ok)throw new Error('Function error');
+    const data=await res.json();
+    if(data.error)throw new Error(data.error);
+    const area=document.getElementById('lookup-area');
+    if(data.results&&data.results.length>1){
+      allResults=data.results;
+      let html='';
+      if(data.did_you_mean)html+=`<div style="font-size:12px;color:var(--muted-dark);margin-bottom:10px;">Did you mean <a style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="document.getElementById('f-name').value='${data.did_you_mean}';lookupSpot()">${data.did_you_mean}</a>?</div>`;
+      html+=`<p style="font-size:10px;color:var(--muted-dark);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Multiple locations — pick one</p>`;
+      data.results.forEach((r,i)=>{html+=`<div class="pick-option" onclick="selectResult(${i})"><div class="pick-name">${r.name}</div><div class="pick-meta">${[r.cuisine,r.hood,r.price].filter(Boolean).join(' · ')}</div></div>`;});
+      html+=`<button class="btn-gold" style="margin-top:4px;" id="use-selected-btn" disabled onclick="useSelected()">Use this location</button>`;
+      area.innerHTML=html;
+    } else {
+      const r=data.results?data.results[0]:data;
+      allResults=[r];
+      let html='';
+      if(data.did_you_mean)html+=`<div style="font-size:12px;color:var(--muted-dark);margin-bottom:10px;">Showing <strong style="color:var(--on-dark)">${r.name}</strong> — not right? <a style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="document.getElementById('f-name').value='${data.did_you_mean}';lookupSpot()">Try "${data.did_you_mean}"</a></div>`;
+      html+=renderPreview(r,false);
+      area.innerHTML=html;
+      fillForm(r);
+      document.getElementById('manual-fields').style.display='block';
+    }
+  } catch(e){
+    document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(200,80,80,0.2)"><div style="font-size:13px;color:var(--muted-dark)">Couldn't find that spot — fill in details below.</div></div>`;
+    document.getElementById('manual-fields').style.display='block';
+  }
+  btn.disabled=false; btnText.textContent='Look up';
+}
+
+async function dbFetch(path,opts={}) {
+  const res=await fetch(SUPABASE_URL+'/rest/v1/'+path,{headers:HEADERS,...opts});
+  if(!res.ok)throw new Error(await res.text());
+  return res.status===204?null:res.json();
+}
+
+async function loadSpots() {
+  setSyncStatus(false,'Connecting');
+  try {
+    const data=await dbFetch('spots?order=id.desc');
+    spots=data||[]; setSyncStatus(true,'Synced');
+  } catch(e) {
+    console.warn('Load error:',e); setSyncStatus(false,'Offline');
+    try{const d=localStorage.getItem('la_eats_spots');if(d)spots=JSON.parse(d);}catch(e2){}
+  }
+  render();
+}
+
+async function saveSpot(spot) {
+  try {
+    const res=await fetch(SUPABASE_URL+'/rest/v1/spots',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify(spot)});
+    if(res.ok||res.status===201){setSyncStatus(true,'Synced');}
+    else{const err=await res.text();console.warn('Save error:',err);setSyncStatus(false,'Save failed');}
+  } catch(e){console.warn('Save exception:',e);setSyncStatus(false,'Save failed');try{localStorage.setItem('la_eats_spots',JSON.stringify(spots));}catch(e2){}}
+}
+
+async function updateSpot(id,changes) {
+  try{await dbFetch('spots?id=eq.'+id,{method:'PATCH',body:JSON.stringify(changes),headers:{...HEADERS,'Prefer':'return=minimal'}});setSyncStatus(true,'Synced');}
+  catch(e){setSyncStatus(false,'Save failed');}
+}
+
+async function deleteSpot(id) {
+  try{await dbFetch('spots?id=eq.'+id,{method:'DELETE'});setSyncStatus(true,'Synced');}
+  catch(e){setSyncStatus(false,'Delete failed');}
+}
+
+async function addSpot() {
+  const rawName=document.getElementById('f-name').value.trim();
+  if(!rawName){toast('Add a name first');return;}
+  const name=lookupData.name||toTitleCase(rawName);
+  const status=document.getElementById('f-status').value;
+  const spot={
+    id:Date.now(), name,
+    hood:document.getElementById('f-hood').value.trim(),
+    cuisine:document.getElementById('f-cuisine').value.trim(),
+    price:document.getElementById('f-price').value,
+    type:document.getElementById('f-type').value,
+    vibe:document.getElementById('f-vibe').value,
+    status,
+    rating:status==='visited'?parseInt(document.getElementById('f-rating').value):null,
+    notes:document.getElementById('f-notes').value.trim(),
+    source:document.getElementById('f-source').value.trim(),
+    added:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    google_rating:lookupData.google_rating||null,
+    google_count:lookupData.google_count||null,
+    inkind:lookupData.inkind||false,
+    inkind_details:lookupData.inkind_details||null,
+    blackbird:lookupData.blackbird||false,
+    blackbird_details:lookupData.blackbird_details||null,
+    perks_checked:!!lookupData.name,
+    reservation_platform:lookupData.reservation_platform||null,
+    reservation_url:lookupData.reservation_url||null
+  };
+  spots.unshift(spot);
+  render();
+  showTab(status==='visited'?'visited':'want');
+  toast('Saving...');
+  await saveSpot(spot);
+  toast('Saved');
+  document.getElementById('f-name').value='';
+  ['f-hood','f-cuisine','f-notes','f-source'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-price').value='';
+  document.getElementById('f-vibe').value='';
+  document.getElementById('f-status').value='want';
+  document.getElementById('rating-row').style.display='none';
+  document.getElementById('lookup-area').innerHTML='';
+  document.getElementById('manual-fields').style.display='none';
+  lookupData={}; allResults=[]; selectedResultIdx=-1;
+}
+
+async function removeSpot(id) {
+  spots=spots.filter(s=>s.id!==id); render(); await deleteSpot(id); toast('Removed');
+}
+
+async function markVisited(id) {
+  const s=spots.find(s=>s.id===id); if(!s)return;
+  s.status='visited'; s.rating=s.rating||4;
+  render(); showTab('visited');
+  await updateSpot(id,{status:'visited',rating:s.rating});
+  toast('Moved to been there');
+}
+
+function fetchRecs() {
+  document.getElementById('recs-list').innerHTML='<div class="loading"><div class="spinner-lg"></div>Searching Eater LA & Infatuation...</div>';
+  sendPrompt('Search Eater LA and The Infatuation for the best new LA restaurants and bars right now — new openings, hidden gems, and what\'s hot. For each spot return: name, neighborhood (broad, e.g. West LA not Sawtelle), cuisine, price ($/$$/$$$), why it\'s worth going. Format as a numbered list I can easily read.');
+}
+
+loadSpots();
+</script>
+</body>
+</html>
