@@ -592,6 +592,51 @@ function toTitleCase(str) {
   return str.split(' ').map((w,i)=>{const l=w.toLowerCase();return(i===0||!small.has(l))?l.charAt(0).toUpperCase()+l.slice(1):l;}).join(' ');
 }
 
+// ---- Duplicate detection ----
+let allowDupe=false; // set when you choose "Add anyway" for a second location
+function normName(n) {
+  return (n||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/&/g,' and ').replace(/['’]/g,'')
+    .replace(/[^a-z0-9]+/g,' ')
+    .replace(/^the /,'')
+    .replace(/ (los angeles|la|restaurant|bar|cafe)$/,'')
+    .trim();
+}
+function findDupe(r) {
+  if(!r)return null;
+  const n=normName(r.name);
+  return spots.find(s=>(r.maps_url&&s.maps_url&&s.maps_url===r.maps_url)||(n&&normName(s.name)===n))||null;
+}
+function dupeHtml(d, r) {
+  const where=`In your ${d.status==='want'?'want to try':'been there'} list${d.hood?' · '+d.hood:''}`;
+  const otherLocation=r&&r.hood&&d.hood&&r.hood!==d.hood;
+  return `<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
+    <div class="preview-name">${d.name} is already saved</div>
+    <div class="preview-meta">${where}</div>
+    ${otherLocation?`<div style="font-size:12px;color:var(--muted-dark);margin-top:8px;">This one is in ${r.hood} — a different location?
+      <a style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="addAnotherLocation()">Add it anyway</a></div>`:''}
+  </div>`;
+}
+let pendingDupeResult=null;
+function addAnotherLocation() {
+  if(!pendingDupeResult)return;
+  allowDupe=true;
+  const r=pendingDupeResult; pendingDupeResult=null;
+  fillForm(r);
+  document.getElementById('lookup-area').innerHTML=renderPreview(r,allResults.length>1);
+  document.getElementById('manual-fields').style.display='block';
+}
+// Returns true (and shows a message) if r is already saved.
+function blockIfDupe(r) {
+  const d=findDupe(r);
+  if(!d)return false;
+  pendingDupeResult=r;
+  document.getElementById('lookup-area').innerHTML=dupeHtml(d,r);
+  document.getElementById('manual-fields').style.display='none';
+  return true;
+}
+
 function isMapsLink(str) {
   return /^https?:\/\//i.test(str) || /^(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.com\/maps|maps\.google\.com)/i.test(str);
 }
@@ -648,6 +693,7 @@ function selectResult(idx) {
 function useSelected() {
   if(selectedResultIdx===-1)return;
   const r=allResults[selectedResultIdx];
+  if(blockIfDupe(r))return;
   fillForm(r);
   document.getElementById('lookup-area').innerHTML=renderPreview(r,allResults.length>1);
   document.getElementById('manual-fields').style.display='block';
@@ -664,12 +710,10 @@ async function lookupSpot() {
   lookupData={}; allResults=[]; selectedResultIdx=-1;
 
   const isLink=isMapsLink(name);
-  const dupe=isLink?null:spots.find(s=>s.name.toLowerCase()===name.toLowerCase());
+  allowDupe=false; pendingDupeResult=null;
+  const dupe=isLink?null:findDupe({name});
   if(dupe){
-    document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
-      <div class="preview-name">${dupe.name} is already saved</div>
-      <div class="preview-meta">In your ${dupe.status==='want'?'want to try':'been there'} list${dupe.hood?' · '+dupe.hood:''}</div>
-    </div>`;
+    document.getElementById('lookup-area').innerHTML=dupeHtml(dupe,null);
     btn.disabled=false; btnText.textContent='Look up'; return;
   }
 
@@ -679,13 +723,10 @@ async function lookupSpot() {
     const data=await res.json();
     if(data.error)throw new Error(data.error);
     if(!data.results||!data.results.length)throw new Error('Not found');
-    const linkDupe=isLink&&data.results.length===1?spots.find(s=>s.name.toLowerCase()===(data.results[0].name||'').toLowerCase()):null;
-    if(linkDupe){
-      document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
-        <div class="preview-name">${linkDupe.name} is already saved</div>
-        <div class="preview-meta">In your ${linkDupe.status==='want'?'want to try':'been there'} list${linkDupe.hood?' · '+linkDupe.hood:''}</div>
-      </div>`;
-      btn.disabled=false; btnText.textContent='Look up'; return;
+    if(data.results.length===1){
+      const one=data.results[0];
+      if(isLink&&!one.maps_url)one.maps_url=name;
+      if(blockIfDupe(one)){allResults=[one];btn.disabled=false; btnText.textContent='Look up'; return;}
     }
     const area=document.getElementById('lookup-area');
     if(data.results&&data.results.length>1){
@@ -760,6 +801,14 @@ async function addSpot() {
   const rawIsLink=isMapsLink(rawName);
   if(rawIsLink&&!lookupData.name){toast('Look up the link first, or type the name');return;}
   const name=lookupData.name||toTitleCase(rawName);
+  const finalDupe=allowDupe?null:findDupe({name,maps_url:lookupData.maps_url||(rawIsLink?rawName:null)});
+  if(finalDupe){
+    pendingDupeResult=null;
+    document.getElementById('lookup-area').innerHTML=dupeHtml(finalDupe,null);
+    document.getElementById('manual-fields').style.display='none';
+    toast(finalDupe.name+' is already on your list');
+    return;
+  }
   const status=document.getElementById('f-status').value;
   const spot={
     id:Date.now(), name,
@@ -799,7 +848,7 @@ async function addSpot() {
   document.getElementById('rating-row').style.display='none';
   document.getElementById('lookup-area').innerHTML='';
   document.getElementById('manual-fields').style.display='none';
-  lookupData={}; allResults=[]; selectedResultIdx=-1;
+  lookupData={}; allResults=[]; selectedResultIdx=-1; allowDupe=false; pendingDupeResult=null;
   hideModal();
 }
 
