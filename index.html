@@ -222,9 +222,9 @@ html, body { height: 100%; background: var(--canvas); color: var(--on-dark); fon
   <div id="tab-add" style="">
     <div class="form-card">
       <h2>Add a spot</h2>
-      <p class="sub">Type a name and hit Look up — details, Google rating, and reservation platform fill in automatically.</p>
+      <p class="sub">Type a name — or paste a Google Maps link — and hit Look up. Details, Google rating, and reservation platform fill in automatically.</p>
       <div class="lookup-row">
-        <input class="lookup-input" id="f-name" placeholder="Restaurant or bar name..." onkeydown="if(event.key==='Enter')lookupSpot()">
+        <input class="lookup-input" id="f-name" placeholder="Name or Google Maps link..." onkeydown="if(event.key==='Enter')lookupSpot()">
         <button class="btn-gold" id="lookup-btn" onclick="lookupSpot()"><span id="lookup-btn-text">Look up</span></button>
       </div>
       <div id="lookup-area"></div>
@@ -441,7 +441,7 @@ function renderCards(filtered, tab) {
       <div class="card-top">
         <div style="display:flex;align-items:baseline;gap:6px;flex:1;min-width:0;">
           <span class="card-name">${s.name}</span>
-          <a href="https://www.google.com/maps/search/` + encodeURIComponent(s.name + ' ' + (s.hood||'') + ' Los Angeles') + `" target="_blank" style="font-size:10px;color:var(--muted-card);text-decoration:none;white-space:nowrap;flex-shrink:0;" title="Open in Google Maps">map ↗</a>
+          <a href="` + (s.maps_url || ('https://www.google.com/maps/search/' + encodeURIComponent(s.name + ' ' + (s.hood||'') + ' Los Angeles'))) + `" target="_blank" style="font-size:10px;color:var(--muted-card);text-decoration:none;white-space:nowrap;flex-shrink:0;" title="Open in Google Maps">map ↗</a>
         </div>
         <span class="card-type">${typeLabel(s.type)}</span>
       </div>
@@ -592,6 +592,10 @@ function toTitleCase(str) {
   return str.split(' ').map((w,i)=>{const l=w.toLowerCase();return(i===0||!small.has(l))?l.charAt(0).toUpperCase()+l.slice(1):l;}).join(' ');
 }
 
+function isMapsLink(str) {
+  return /^https?:\/\//i.test(str) || /^(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.com\/maps|maps\.google\.com)/i.test(str);
+}
+
 function fillForm(r) {
   lookupData=r;
   document.getElementById('f-hood').value=r.hood||'';
@@ -659,7 +663,8 @@ async function lookupSpot() {
   document.getElementById('manual-fields').style.display='none';
   lookupData={}; allResults=[]; selectedResultIdx=-1;
 
-  const dupe=spots.find(s=>s.name.toLowerCase()===name.toLowerCase());
+  const isLink=isMapsLink(name);
+  const dupe=isLink?null:spots.find(s=>s.name.toLowerCase()===name.toLowerCase());
   if(dupe){
     document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
       <div class="preview-name">${dupe.name} is already saved</div>
@@ -673,6 +678,15 @@ async function lookupSpot() {
     if(!res.ok)throw new Error('Function error');
     const data=await res.json();
     if(data.error)throw new Error(data.error);
+    if(!data.results||!data.results.length)throw new Error('Not found');
+    const linkDupe=isLink&&data.results.length===1?spots.find(s=>s.name.toLowerCase()===(data.results[0].name||'').toLowerCase()):null;
+    if(linkDupe){
+      document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(201,168,76,0.4)">
+        <div class="preview-name">${linkDupe.name} is already saved</div>
+        <div class="preview-meta">In your ${linkDupe.status==='want'?'want to try':'been there'} list${linkDupe.hood?' · '+linkDupe.hood:''}</div>
+      </div>`;
+      btn.disabled=false; btnText.textContent='Look up'; return;
+    }
     const area=document.getElementById('lookup-area');
     if(data.results&&data.results.length>1){
       allResults=data.results;
@@ -693,7 +707,7 @@ async function lookupSpot() {
       document.getElementById('manual-fields').style.display='block';
     }
   } catch(e){
-    document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(200,80,80,0.2)"><div style="font-size:13px;color:var(--muted-dark)">Couldn't find that spot — fill in details below.</div></div>`;
+    document.getElementById('lookup-area').innerHTML=`<div class="lookup-preview" style="border-color:rgba(200,80,80,0.2)"><div style="font-size:13px;color:var(--muted-dark)">${isLink?"Couldn't read that link — try typing the name, or fill in details below.":"Couldn't find that spot. Paste its Google Maps link above and hit Look up again — or fill in details below."}</div></div>`;
     document.getElementById('manual-fields').style.display='block';
   }
   btn.disabled=false; btnText.textContent='Look up';
@@ -722,7 +736,11 @@ async function saveSpot(spot) {
   try {
     const res=await fetch(SUPABASE_URL+'/rest/v1/spots',{method:'POST',headers:{...HEADERS,'Prefer':'return=minimal'},body:JSON.stringify(spot)});
     if(res.ok||res.status===201){setSyncStatus(true,'Synced');}
-    else{const err=await res.text();console.warn('Save error:',err);setSyncStatus(false,'Save failed');}
+    else{
+      const err=await res.text();
+      if(spot.maps_url!==undefined&&/maps_url/.test(err)){const {maps_url,...rest}=spot;return saveSpot(rest);}
+      console.warn('Save error:',err);setSyncStatus(false,'Save failed');
+    }
   } catch(e){console.warn('Save exception:',e);setSyncStatus(false,'Save failed');try{localStorage.setItem('la_eats_spots',JSON.stringify(spots));}catch(e2){}}
 }
 
@@ -739,6 +757,8 @@ async function deleteSpot(id) {
 async function addSpot() {
   const rawName=document.getElementById('f-name').value.trim();
   if(!rawName){toast('Add a name first');return;}
+  const rawIsLink=isMapsLink(rawName);
+  if(rawIsLink&&!lookupData.name){toast('Look up the link first, or type the name');return;}
   const name=lookupData.name||toTitleCase(rawName);
   const status=document.getElementById('f-status').value;
   const spot={
@@ -761,8 +781,10 @@ async function addSpot() {
     blackbird_details:lookupData.blackbird_details||null,
     perks_checked:!!lookupData.name,
     reservation_platform:lookupData.reservation_platform||null,
-    reservation_url:lookupData.reservation_url||null
+    reservation_url:lookupData.reservation_url||null,
+    maps_url:lookupData.maps_url||(rawIsLink?rawName:null)
   };
+  if(!spot.maps_url)delete spot.maps_url;
   spots.unshift(spot);
   render();
   showTab(status==='visited'?'visited':'want');
