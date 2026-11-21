@@ -592,6 +592,63 @@ function toTitleCase(str) {
   return str.split(' ').map((w,i)=>{const l=w.toLowerCase();return(i===0||!small.has(l))?l.charAt(0).toUpperCase()+l.slice(1):l;}).join(' ');
 }
 
+// ---- inKind / Blackbird perks from Restaurant Gold ----
+// Uses the same restaurant list as restaurantgoldla.com, so updating that site updates this app.
+const RG_DATA_URLS = [
+  'https://restaurantgoldla.com/assets/js/data.js',
+  'https://cdn.jsdelivr.net/gh/cmmarshall22-glitch/restaurant-gold@main/assets/js/data.js'
+];
+let perkIndex=null, spotsLoaded=false;
+function perkKeys(n){
+  const full=normName(n), base=normName(String(n||'').split(/\s+[-–—]\s+/)[0]);
+  return [...new Set([full,base])].filter(Boolean);
+}
+function buildPerkIndex(){
+  const list=(window.RG_DATA&&window.RG_DATA.restaurants)||[];
+  if(!list.length)return;
+  perkIndex=new Map();
+  for(const r of list) for(const k of perkKeys(r.name)){
+    const cur=perkIndex.get(k)||{inkind:false,blackbird:false};
+    perkIndex.set(k,{inkind:cur.inkind||!!r.inkind,blackbird:cur.blackbird||!!r.blackbird});
+  }
+}
+// Returns {inkind, blackbird} if the place is on the Restaurant Gold list, else null.
+function perksFor(name){
+  if(!perkIndex||!name)return null;
+  for(const k of perkKeys(name)) if(perkIndex.has(k)) return perkIndex.get(k);
+  // e.g. "Camphor & Co." -> "Camphor": drop trailing words, but never below 6 letters
+  const w=normName(name).split(' ');
+  for(let i=w.length-1;i>=1;i--){const k=w.slice(0,i).join(' '); if(k.length>=6&&perkIndex.has(k))return perkIndex.get(k);}
+  return null;
+}
+function applyPerks(r){
+  const p=perksFor(r&&r.name);
+  if(p){r.inkind=p.inkind;r.blackbird=p.blackbird;r.inkind_details='';r.blackbird_details='';}
+  return r;
+}
+// Bring saved spots in line with the list (spots not on the list are left as you set them).
+async function syncPerks(){
+  if(!perkIndex||!spotsLoaded)return;
+  const changed=[];
+  for(const s of spots){
+    const p=perksFor(s.name);
+    if(p&&(!!s.inkind!==p.inkind||!!s.blackbird!==p.blackbird)){
+      s.inkind=p.inkind; s.blackbird=p.blackbird; changed.push(s);
+    }
+  }
+  if(!changed.length)return;
+  render();
+  for(const s of changed) await updateSpot(s.id,{inkind:s.inkind,blackbird:s.blackbird,perks_checked:true});
+}
+function loadPerkList(i=0){
+  if(i>=RG_DATA_URLS.length)return;
+  const el=document.createElement('script');
+  el.src=RG_DATA_URLS[i]; el.async=true;
+  el.onload=()=>{buildPerkIndex(); if(perkIndex) syncPerks(); else loadPerkList(i+1);};
+  el.onerror=()=>loadPerkList(i+1);
+  document.head.appendChild(el);
+}
+
 // ---- Duplicate detection ----
 let allowDupe=false; // set when you choose "Add anyway" for a second location
 function normName(n) {
@@ -723,6 +780,7 @@ async function lookupSpot() {
     const data=await res.json();
     if(data.error)throw new Error(data.error);
     if(!data.results||!data.results.length)throw new Error('Not found');
+    data.results.forEach(applyPerks);
     if(data.results.length===1){
       const one=data.results[0];
       if(isLink&&!one.maps_url)one.maps_url=name;
@@ -771,6 +829,7 @@ async function loadSpots() {
   }
   render();
   switchTab('want');
+  spotsLoaded=true; syncPerks();
 }
 
 async function saveSpot(spot) {
@@ -834,6 +893,8 @@ async function addSpot() {
     maps_url:lookupData.maps_url||(rawIsLink?rawName:null)
   };
   if(!spot.maps_url)delete spot.maps_url;
+  const listPerks=perksFor(spot.name);
+  if(listPerks){spot.inkind=listPerks.inkind;spot.blackbird=listPerks.blackbird;spot.perks_checked=true;}
   spots.unshift(spot);
   render();
   showTab(status==='visited'?'visited':'want');
@@ -872,6 +933,7 @@ function fetchRecs() {
 
 
 loadSpots();
+loadPerkList();
 </script>
 </body>
 </html>
