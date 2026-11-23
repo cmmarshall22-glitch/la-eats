@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LA Eats & Drinks</title>
+<!-- Home-screen app -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LA Eats">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#16101E">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,7 +28,7 @@
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
 }
 html, body { height: 100%; background: var(--canvas); color: var(--on-dark); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
-.app { max-width: 660px; margin: 0 auto; padding: 0 16px 80px; }
+.app { max-width: 660px; margin: 0 auto; padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 
 /* Header */
 .header { padding: 40px 0 28px; border-bottom: 0.5px solid var(--rule); margin-bottom: 28px; display: flex; align-items: flex-end; justify-content: space-between; }
@@ -162,7 +171,7 @@ html, body { height: 100%; background: var(--canvas); color: var(--on-dark); fon
 .empty em { color: var(--gold); font-style: italic; font-family: var(--serif); }
 
 /* Toast */
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--canvas-3); color: var(--on-dark); border: 0.5px solid var(--rule); padding: 10px 20px; border-radius: 20px; font-size: 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; letter-spacing: 0.04em; }
+.toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--canvas-3); color: var(--on-dark); border: 0.5px solid var(--rule); padding: 10px 20px; border-radius: 20px; font-size: 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; letter-spacing: 0.04em; }
 .toast.show { opacity: 1; }
 .spinner-sm { display: inline-block; width: 10px; height: 10px; border: 1.5px solid rgba(243,238,232,0.2); border-top-color: var(--canvas); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
 .spinner-lg { display: block; width: 22px; height: 22px; border: 2px solid rgba(201,168,76,0.2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
@@ -213,7 +222,7 @@ html, body { height: 100%; background: var(--canvas); color: var(--on-dark); fon
   <div id="tab-all" style="display:none"></div>
 
   <!-- Add modal -->
-  <div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;overflow-y:auto;padding:24px 16px;">
+  <div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;overflow-y:auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));">
     <div style="max-width:600px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <span style="font-family:var(--serif);font-size:20px;color:var(--on-dark);">Add a spot</span>
